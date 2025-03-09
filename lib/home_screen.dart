@@ -1,8 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_ui_auth/firebase_ui_auth.dart';
 import 'package:flutter/services.dart';
+import 'package:health_connect/screens/health_chat_screen.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:health_connect/health_metrics_dashboard.dart';
+import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
+import './providers/appointment_cart_provider.dart';
+import './models/appointment.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key, required this.userId});
@@ -60,16 +66,16 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       value: SystemUiOverlayStyle.light,
       child: Theme(
         data: Theme.of(context).copyWith(
-          primaryColor: const Color(0xFF2C3E50),
+          primaryColor: const Color(0xFF1E293B),
           colorScheme: ColorScheme.fromSeed(
-            seedColor: const Color(0xFF2C3E50),
-            secondary: const Color(0xFF3498DB),
-            tertiary: const Color(0xFF2ECC71),
+            seedColor: const Color(0xFF1E293B),
+            secondary: const Color(0xFF3B82F6),
+            tertiary: const Color(0xFF10B981),
           ),
         ),
         child: Scaffold(
           key: _scaffoldKey,
-          backgroundColor: Colors.grey[100],
+          backgroundColor: const Color(0xFFF8FAFC),
           drawer: _buildDrawer(context),
           body: CustomScrollView(
             physics: const BouncingScrollPhysics(),
@@ -77,6 +83,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               _buildModernAppBar(context),
               _buildWelcomeMessage(context),
               _buildQuickActions(context),
+              _buildUpcomingAppointments(context),
               _buildMainServices(context),
             ],
           ),
@@ -96,8 +103,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              const Color(0xFF2C3E50),
-              const Color(0xFF3498DB).withOpacity(0.9),
+              const Color(0xFF1E293B),
+              const Color(0xFF3B82F6).withOpacity(0.9),
             ],
           ),
         ),
@@ -108,19 +115,19 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               decoration: const BoxDecoration(color: Colors.transparent),
               currentAccountPicture: CircleAvatar(
                 backgroundColor: Colors.white,
-                child: Icon(LucideIcons.user, color: const Color(0xFF2C3E50), size: 40),
+                child: Icon(LucideIcons.user, color: const Color(0xFF1E293B), size: 40),
               ),
               accountName: const Text(
-                'patient',
+                'Patient Name',
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              accountEmail: const Text(
-                'patient@example.com',
-                style: TextStyle(color: Colors.white70),
+              accountEmail: Text(
+                FirebaseAuth.instance.currentUser?.email ?? '',
+                style: const TextStyle(color: Colors.white70),
               ),
             ),
             _buildDrawerItem(LucideIcons.settings, 'Settings', () {
@@ -161,18 +168,18 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   Widget _buildModernAppBar(BuildContext context) {
     return SliverAppBar(
-      expandedHeight: 180.0,
+      expandedHeight: 200.0,
       floating: false,
       pinned: true,
       stretch: true,
-      backgroundColor: const Color(0xFF2C3E50),
+      backgroundColor: const Color(0xFF1E293B),
       leading: IconButton(
         icon: const Icon(LucideIcons.menu),
         onPressed: () => _scaffoldKey.currentState?.openDrawer(),
       ),
       flexibleSpace: FlexibleSpaceBar(
         title: const Text(
-          'Wellness Hub',
+          'Health Hub',
           style: TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.bold,
@@ -180,45 +187,25 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             letterSpacing: 1.2,
           ),
         ),
-        background: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                const Color(0xFF2C3E50),
-                const Color(0xFF3498DB).withOpacity(0.9),
-              ],
+        background: Stack(
+          fit: StackFit.expand,
+          children: [
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    const Color(0xFF1E293B),
+                    const Color(0xFF3B82F6).withOpacity(0.9),
+                  ],
+                ),
+              ),
             ),
-          ),
-          child: Stack(
-            children: [
-              Positioned(
-                right: -30,
-                top: -30,
-                child: Container(
-                  width: 200,
-                  height: 200,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.1),
-                    shape: BoxShape.circle,
-                  ),
-                ),
-              ),
-              Positioned(
-                left: -50,
-                bottom: -50,
-                child: Container(
-                  width: 250,
-                  height: 250,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.05),
-                    shape: BoxShape.circle,
-                  ),
-                ),
-              ),
-            ],
-          ),
+            CustomPaint(
+              painter: ModernPatternPainter(),
+            ),
+          ],
         ),
       ),
       actions: [
@@ -238,7 +225,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     return SliverToBoxAdapter(
       child: SlideTransition(
         position: _slideAnimation,
-        child: Padding(
+        child: Container(
           padding: const EdgeInsets.fromLTRB(20, 24, 20, 8),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -248,7 +235,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 style: TextStyle(
                   fontSize: 32,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF2C3E50),
+                  color: Color(0xFF1E293B),
                 ),
               ),
               const SizedBox(height: 8),
@@ -268,69 +255,114 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildQuickActions(BuildContext context) {
-    final quickActions = [
-      QuickAction('Emergency', LucideIcons.alertCircle, '/emergencyContacts', const Color(0xFFE74C3C)),
-      QuickAction('Talk Now', LucideIcons.video, '/accessTherapists', const Color(0xFF27AE60)),
-      QuickAction('Book', LucideIcons.calendar, '/appointmentBooking', const Color(0xFF3498DB)),
-      QuickAction('Mood', LucideIcons.smile, '/moodLogging', const Color(0xFFF39C12)),
-      QuickAction('Journal', LucideIcons.bookOpen, '/journal', const Color(0xFF9B59B6)),
-      QuickAction('Breathe', LucideIcons.wind, '/breathing', const Color(0xFF16A085)),
+    final List<QuickAction> actions = [
+      QuickAction('Health Metrics', LucideIcons.activitySquare, '/health-metrics', const Color(0xFF10B981)),
+      QuickAction('Book Appointment', LucideIcons.calendar, '/appointmentBooking', const Color(0xFF3B82F6)),
+      QuickAction('Chat with Doctor', LucideIcons.messageCircle, '/chat', const Color(0xFF10B981)),
+      QuickAction('Emergency', LucideIcons.alertCircle, '/emergencyContacts', const Color(0xFFEF4444)),
+      QuickAction('Legal Support', LucideIcons.scale, '/legalSupport', const Color(0xFF8B5CF6)),
     ];
 
     return SliverToBoxAdapter(
-      child: Container(
-        padding: const EdgeInsets.all(20.0),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Quick Actions',
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF2C3E50),
-                  ),
-                ),
-                TextButton.icon(
-                  onPressed: () {},
-                  icon: const Icon(LucideIcons.chevronRight, size: 18),
-                  label: const Text('See All'),
-                ),
-              ],
+            const Text(
+              'Quick Actions',
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF1E293B),
+              ),
             ),
             const SizedBox(height: 16),
-            SizedBox(
-              height: 140,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                physics: const BouncingScrollPhysics(),
-                itemCount: quickActions.length,
-                itemBuilder: (context, index) {
-                  final action = quickActions[index];
-                  return FadeTransition(
-                    opacity: Tween<double>(begin: 0, end: 1).animate(
-                      CurvedAnimation(
-                        parent: _cardController,
-                        curve: Interval(
-                          index * 0.1,
-                          0.6 + index * 0.1,
-                          curve: Curves.easeOut,
-                        ),
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 16,
+                mainAxisSpacing: 16,
+                childAspectRatio: 1.5,
+              ),
+              itemCount: actions.length,
+              itemBuilder: (context, index) {
+                final action = actions[index];
+                return Card(
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    side: BorderSide(color: Colors.grey.shade200),
+                  ),
+                  child: InkWell(
+                    onTap: () {
+                      if (action.route == '/health-metrics') {
+                        if (!mounted) return;
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => Scaffold(
+                                appBar: AppBar(
+                                  title: const Text(
+                                    'Health Metrics',
+                                    style: TextStyle(color: Colors.white),
+                                  ),
+                                  backgroundColor: const Color(0xFF2C3E50),
+                                  leading: IconButton(
+                                    icon: const Icon(Icons.arrow_back, color: Colors.white),
+                                    onPressed: () => Navigator.of(context).pop(),
+                                  ),
+                                ),
+                                body: SafeArea(
+                                  child: HealthMetricsDashboard(
+                                    userId: widget.userId,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
+                        });
+                      } else {
+                        if (!mounted) return;
+                        Navigator.pushNamed(context, action.route);
+                      }
+                    },
+                    borderRadius: BorderRadius.circular(16),
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: action.color.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Icon(
+                              action.icon,
+                              color: action.color,
+                              size: 24,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            action.title,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF1E293B),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    child: _buildQuickActionCard(
-                      context,
-                      action.title,
-                      action.icon,
-                      action.route,
-                      action.color,
-                    ),
-                  );
-                },
-              ),
+                  ),
+                );
+              },
             ),
           ],
         ),
@@ -338,142 +370,242 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildQuickActionCard(
-      BuildContext context,
-      String title,
-      IconData icon,
-      String route,
-      Color color,
-      ) {
-    return Padding(
-      padding: const EdgeInsets.only(right: 16),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () => Navigator.pushNamed(context, route),
-          borderRadius: BorderRadius.circular(24),
-          child: Container(
-            width: 120,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [color.withOpacity(0.9), color],
+  Widget _buildUpcomingAppointments(BuildContext context) {
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Upcoming Appointments',
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF1E293B),
               ),
-              borderRadius: BorderRadius.circular(24),
-              boxShadow: [
-                BoxShadow(
-                  color: color.withOpacity(0.3),
-                  blurRadius: 12,
-                  offset: const Offset(0, 6),
-                ),
-              ],
             ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(icon, size: 40, color: Colors.white),
-                const SizedBox(height: 12),
-                Text(
-                  title,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                    letterSpacing: 0.5,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ],
+            const SizedBox(height: 16),
+            StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('appointments')
+                  .where('userId', isEqualTo: widget.userId)
+                  .where('dateTime', isGreaterThanOrEqualTo: DateTime.now())
+                  .orderBy('dateTime')
+                  .limit(5)
+                  .snapshots(),
+              builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  return Center(
+                    child: Text('Error: ${snapshot.error}'),
+                  );
+                }
+
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(
+                    child: CircularProgressIndicator(),
+                  );
+                }
+
+                final appointments = snapshot.data?.docs ?? [];
+
+                if (appointments.isEmpty) {
+                  return Card(
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(15),
+                      side: BorderSide(color: Colors.grey.shade200),
+                    ),
+                    child: const Padding(
+                      padding: EdgeInsets.all(20),
+                      child: Center(
+                        child: Text(
+                          'No upcoming appointments',
+                          style: TextStyle(
+                            color: Colors.grey,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                }
+
+                return ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: appointments.length,
+                  itemBuilder: (context, index) {
+                    final appointmentData = appointments[index].data() as Map<String, dynamic>;
+                    final dateTime = (appointmentData['dateTime'] as Timestamp).toDate();
+
+                    return Card(
+                      elevation: 2,
+                      margin: const EdgeInsets.only(bottom: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(15),
+                      ),
+                      child: ListTile(
+                        contentPadding: const EdgeInsets.all(16),
+                        leading: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF3B82F6).withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(
+                            Icons.calendar_today,
+                            color: Color(0xFF3B82F6),
+                          ),
+                        ),
+                        title: Text(
+                          appointmentData['patientName'] ?? 'N/A',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const SizedBox(height: 8),
+                            Text(
+                              'Date: ${DateFormat('MMM dd, yyyy').format(dateTime)}',
+                              style: TextStyle(color: Colors.grey[600]),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Time: ${appointmentData['session'] ?? 'N/A'}',
+                              style: TextStyle(color: Colors.grey[600]),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Service: ${appointmentData['serviceId'] ?? 'N/A'}',
+                              style: TextStyle(color: Colors.grey[600]),
+                            ),
+                          ],
+                        ),
+                        trailing: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: _getStatusColor(appointmentData['status']),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            appointmentData['status'] ?? 'Pending',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                );
+              },
             ),
-          ),
+          ],
         ),
       ),
     );
+  }
+
+  Color _getStatusColor(String? status) {
+    switch (status?.toLowerCase()) {
+      case 'completed':
+        return Colors.green;
+      case 'cancelled':
+        return Colors.red;
+      case 'pending':
+        return const Color(0xFF3B82F6);
+      default:
+        return Colors.grey;
+    }
   }
 
   Widget _buildMainServices(BuildContext context) {
-    final services = [
-      ServiceCard('Meditation', LucideIcons.brain, '/guidedMeditation', const Color(0xFF9B59B6)),
-      ServiceCard('Hospitals', LucideIcons.building2, '/locateHospital', const Color(0xFF16A085)),
-      ServiceCard('Calendar', LucideIcons.calendarDays, '/calendar', const Color(0xFF3498DB)),
-      ServiceCard('Legal Help', LucideIcons.scale, '/legalSupport', const Color(0xFF795548)),
-    ];
-
-    return SliverPadding(
-      padding: const EdgeInsets.all(20.0),
-      sliver: SliverGrid(
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          childAspectRatio: 1.1,
-          crossAxisSpacing: 20,
-          mainAxisSpacing: 20,
-        ),
-        delegate: SliverChildBuilderDelegate(
-              (context, index) {
-            return FadeTransition(
-              opacity: Tween<double>(begin: 0, end: 1).animate(
-                CurvedAnimation(
-                  parent: _cardController,
-                  curve: Interval(
-                    0.4 + index * 0.1,
-                    0.8 + index * 0.1,
-                    curve: Curves.easeOut,
-                  ),
-                ),
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Calendar',
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF1E293B),
               ),
-              child: _buildServiceCard(
-                context,
-                services[index].title,
-                services[index].icon,
-                services[index].route,
-                services[index].color,
-              ),
-            );
-          },
-          childCount: services.length,
+            ),
+            const SizedBox(height: 16),
+            _buildCalendarCard(context),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildServiceCard(BuildContext context, String title, IconData icon, String route, Color color) {
+  Widget _buildCalendarCard(BuildContext context) {
     return Card(
-        elevation: 8,
-        shadowColor: color.withOpacity(0.3),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        child: InkWell(
-        onTap: () => Navigator.pushNamed(context, route),
-    borderRadius: BorderRadius.circular(24),
-    child: Container(
-    decoration: BoxDecoration(
-      gradient: LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [color.withOpacity(0.9), color],
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: Colors.grey.shade200),
       ),
-      borderRadius: BorderRadius.circular(24),
-    ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, size: 48, color: Colors.white),
-          const SizedBox(height: 12),
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-              letterSpacing: 0.5,
-            ),
-            textAlign: TextAlign.center,
+      child: InkWell(
+        onTap: () => Navigator.pushNamed(context, '/calendar'),
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF3B82F6).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  LucideIcons.calendarDays,
+                  color: Color(0xFF3B82F6),
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 16),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'View Calendar',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF1E293B),
+                      ),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      'Check your schedule and appointments',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(LucideIcons.chevronRight, color: Colors.grey),
+            ],
           ),
-        ],
-      ),
-    ),
         ),
+      ),
     );
   }
 
@@ -483,9 +615,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.2),
+            color: Colors.black.withOpacity(0.05),
             blurRadius: 10,
-            offset: const Offset(0, -2),
+            offset: const Offset(0, -5),
           ),
         ],
       ),
@@ -499,7 +631,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 Navigator.pushNamed(context, '/schedule');
                 break;
               case 2:
-                Navigator.pushNamed(context, '/chat');
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const HealthChatScreen()),
+                );
                 break;
               case 3:
                 Navigator.pushNamed(context, '/settings');
@@ -508,7 +643,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           },
           type: BottomNavigationBarType.fixed,
           backgroundColor: Colors.white,
-          selectedItemColor: const Color(0xFF2C3E50),
+          selectedItemColor: const Color(0xFF1E293B),
           unselectedItemColor: Colors.grey[400],
           selectedFontSize: 12,
           unselectedFontSize: 12,
@@ -545,7 +680,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       scale: _fadeAnimation,
       child: FloatingActionButton.extended(
         onPressed: () => _showEmergencyDialog(context),
-        backgroundColor: const Color(0xFFE74C3C),
+        backgroundColor: const Color(0xFFEF4444),
         elevation: 4,
         highlightElevation: 8,
         icon: const Icon(LucideIcons.alertCircle, color: Colors.white, size: 24),
@@ -560,6 +695,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       ),
     );
   }
+
   void _showEmergencyDialog(BuildContext context) {
     showDialog(
       context: context,
@@ -568,7 +704,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
           title: Row(
             children: [
-              Icon(LucideIcons.alertCircle, color: const Color(0xFFE74C3C), size: 28),
+              Icon(LucideIcons.alertCircle, color: const Color(0xFFEF4444), size: 28),
               const SizedBox(width: 12),
               const Text(
                 'Emergency Services',
@@ -610,7 +746,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             ),
             ElevatedButton.icon(
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFE74C3C),
+                backgroundColor: const Color(0xFFEF4444),
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                 shape: RoundedRectangleBorder(
@@ -644,7 +780,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
           title: Row(
             children: [
-              Icon(LucideIcons.logOut, color: const Color(0xFFE74C3C), size: 28),
+              Icon(LucideIcons.logOut, color: const Color(0xFFEF4444), size: 28),
               const SizedBox(width: 12),
               const Text('Sign Out'),
             ],
@@ -657,7 +793,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFE74C3C),
+                backgroundColor: const Color(0xFFEF4444),
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
@@ -666,7 +802,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               child: const Text('Sign Out'),
               onPressed: () async {
                 await FirebaseAuth.instance.signOut();
-                Navigator.of(context).popUntil((route) => route.isFirst);
+                Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
               },
             ),
           ],
@@ -676,54 +812,45 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   void _navigateToProfile(BuildContext context) {
-    Navigator.push(
-      context,
-      MaterialPageRoute<ProfileScreen>(
-        builder: (context) => ProfileScreen(
-          appBar: AppBar(
-            title: const Text(
-              'Profile',
-              style: TextStyle(color: Colors.white),
-            ),
-            backgroundColor: const Color(0xFF2C3E50),
-            actions: [
-              IconButton(
-                icon: const Icon(LucideIcons.edit3),
-                onPressed: () => _navigateToEditProfile(context),
-              ),
-            ],
-          ),
-          children: [
-            const Padding(
-              padding: EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  CircleAvatar(
-                    radius: 60,
-                    backgroundColor: Color(0xFF2C3E50),
-                    child: Icon(LucideIcons.user, size: 60, color: Colors.white),
-                  ),
-                  SizedBox(height: 16),
-                  Text(
-                    'Patient',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+    Navigator.pushNamed(context, '/profile');
   }
 
   void _navigateToEditProfile(BuildContext context) {
-    // Add your edit profile navigation logic here
     Navigator.pushNamed(context, '/editProfile');
   }
+}
+
+// Modern Pattern Painter for background design
+class ModernPatternPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.white.withOpacity(0.05)
+      ..style = PaintingStyle.fill;
+
+    final path = Path();
+    path.moveTo(0, size.height * 0.7);
+    path.quadraticBezierTo(
+      size.width * 0.25,
+      size.height * 0.7,
+      size.width * 0.5,
+      size.height * 0.8,
+    );
+    path.quadraticBezierTo(
+      size.width * 0.75,
+      size.height * 0.9,
+      size.width,
+      size.height * 0.8,
+    );
+    path.lineTo(size.width, size.height);
+    path.lineTo(0, size.height);
+    path.close();
+
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(CustomPainter oldDelegate) => false;
 }
 
 // Data Models
@@ -734,13 +861,4 @@ class QuickAction {
   final Color color;
 
   QuickAction(this.title, this.icon, this.route, this.color);
-}
-
-class ServiceCard {
-  final String title;
-  final IconData icon;
-  final String route;
-  final Color color;
-
-  ServiceCard(this.title, this.icon, this.route, this.color);
 }

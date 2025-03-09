@@ -30,7 +30,7 @@ if (flutterVersionName == null) {
 }
 
 android {
-    namespace = 'com.example.health_connect'
+    namespace = 'com.example.health_hub'
     compileSdkVersion 34 // Replace with the required SDK version
     ndkVersion "21.4.7075529" // Specify the installed NDK version
 
@@ -47,7 +47,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = 'com.example.health_connect'
+        applicationId = 'com.example.health_hub'
         minSdkVersion 23
         targetSdkVersion 34 // Specify a concrete SDK version
         versionCode = flutterVersionCode.toInteger()

@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "622376587837",
+    "project_id": "health-hub-eebf2",
+    "storage_bucket": "health-hub-eebf2.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:622376587837:android:8a16ee54c38af8146a1054",
+        "android_client_info": {
+          "package_name": "com.example.health_hub"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBcNJhzGWFgx9kTSqjoJa3cXy9DstUb6vk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:622376587837:android:ce3d1b0d18d770d96a1054",
+        "android_client_info": {
+          "package_name": "com.example.health_hubs"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBcNJhzGWFgx9kTSqjoJa3cXy9DstUb6vk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
